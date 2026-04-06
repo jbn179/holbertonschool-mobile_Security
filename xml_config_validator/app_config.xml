@@ -1,0 +1,56 @@
+<appConfig>
+  <environment>
+    <mode value="production" />
+    <api>
+      <baseUrl>https://api.holberton.com</baseUrl>
+      <apiKey>ABCD1234-EFGH5678-IJKL9101</apiKey>
+      <timeout>30</timeout>
+    </api>
+  </environment>
+
+  <permissions>
+    <permission name="location" required="true" />
+    <permission name="storage" required="false" />
+    <permission name="camera" required="false" />
+  </permissions>
+
+  <users>
+    <user id="1" role="admin">
+      <name>John Doe</name>
+      <email>johndoe@holberton.com</email>
+      <preferences>
+        <language>en</language>
+        <theme>dark</theme>
+        <notifications enabled="true" />
+      </preferences>
+    </user>
+    <user id="2" role="viewer">
+      <name>Jane Smith</name>
+      <email>janesmith@holberton.com</email>
+      <preferences>
+        <language>fr</language>
+        <theme>light</theme>
+        <notifications enabled="false" />
+      </preferences>
+    </user>
+  </users>
+
+  <security>
+    <encryption>
+      <type>AES-256</type>
+      <key>Base64EncodedEncryptionKey==</key>
+    </encryption>
+    <firewall>
+      <rules>
+        <rule action="allow" ip="192.168.1.0/24" />
+        <rule action="deny" ip="0.0.0.0/0" />
+      </rules>
+    </firewall>
+  </security>
+
+  <features>
+    <feature name="betaTesting" enabled="true" />
+    <feature name="chat" enabled="false" />
+    <feature name="fileSharing" enabled="true" />
+  </features>
+</appConfig>

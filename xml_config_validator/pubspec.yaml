@@ -1,0 +1,12 @@
+name: xml_config_validator
+description: Security validator for Android XML configuration files.
+version: 1.0.0
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  xml: ^6.5.0
+
+dev_dependencies:
+  lints: ^3.0.0
