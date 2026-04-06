@@ -38,6 +38,27 @@ class FirewallRule {
   FirewallRule({required this.action, required this.ip});
 }
 
+class EncryptionConfig {
+  final String type;
+  final String key;
+
+  EncryptionConfig({required this.type, required this.key});
+}
+
+class Permission {
+  final String name;
+  final bool required;
+
+  Permission({required this.name, required this.required});
+}
+
+class FeatureFlag {
+  final String name;
+  final bool enabled;
+
+  FeatureFlag({required this.name, required this.enabled});
+}
+
 class ValidationResult {
   final List<String> errors;
   final List<String> warnings;
@@ -89,6 +110,32 @@ class AppConfigParser {
       return FirewallRule(action: action, ip: ip);
     }).toList();
   }
+
+  /// Parse encryption configuration
+  EncryptionConfig parseEncryptionConfig() {
+    final encryption = _document.findAllElements('encryption').first;
+    final type = encryption.findElements('type').first.innerText.trim();
+    final key = encryption.findElements('key').first.innerText.trim();
+    return EncryptionConfig(type: type, key: key);
+  }
+
+  /// Parse permissions
+  List<Permission> parsePermissions() {
+    return _document.findAllElements('permission').map((el) {
+      final name = el.getAttribute('name') ?? '';
+      final req = el.getAttribute('required') == 'true';
+      return Permission(name: name, required: req);
+    }).toList();
+  }
+
+  /// Parse feature flags
+  List<FeatureFlag> parseFeatureFlags() {
+    return _document.findAllElements('feature').map((el) {
+      final name = el.getAttribute('name') ?? '';
+      final enabled = el.getAttribute('enabled') == 'true';
+      return FeatureFlag(name: name, enabled: enabled);
+    }).toList();
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -103,6 +150,9 @@ class AppConfigValidator {
     required ApiConfig apiConfig,
     required List<UserConfig> users,
     required List<FirewallRule> firewallRules,
+    required EncryptionConfig encryptionConfig,
+    required List<Permission> permissions,
+    required List<FeatureFlag> featureFlags,
   }) {
     _errors.clear();
     _warnings.clear();
@@ -110,6 +160,9 @@ class AppConfigValidator {
     _validateApiConfig(apiConfig);
     _validateUsers(users);
     _validateFirewallRules(firewallRules);
+    _validateEncryption(encryptionConfig);
+    _validatePermissions(permissions);
+    _validateFeatureFlags(featureFlags);
 
     return ValidationResult(errors: List.from(_errors), warnings: List.from(_warnings));
   }
@@ -162,6 +215,46 @@ class AppConfigValidator {
             '[Users] User "${user.id}" stores email in plain text ("${user.email}"). '
             'Consider using a hashed identifier instead.');
       }
+    }
+  }
+
+  // ── Encryption checks ─────────────────────
+
+  void _validateEncryption(EncryptionConfig config) {
+    if (config.key.isEmpty) {
+      _errors.add('[Encryption] Encryption key must not be empty.');
+    } else if (config.key.contains('Base64Encoded') ||
+        config.key.contains('REPLACE') ||
+        config.key == 'Base64EncodedEncryptionKey==') {
+      _warnings.add(
+          '[Encryption] Encryption key appears to be a placeholder ("${config.key}"). '
+          'Never store real encryption keys in config files — use Android Keystore instead.');
+    }
+  }
+
+  // ── Permission checks ─────────────────────
+
+  void _validatePermissions(List<Permission> permissions) {
+    const sensitivePermissions = {'camera', 'location', 'contacts', 'microphone'};
+
+    for (final perm in permissions) {
+      if (sensitivePermissions.contains(perm.name.toLowerCase()) && !perm.required) {
+        _warnings.add(
+            '[Permissions] Permission "${perm.name}" is declared but marked required="false". '
+            'Ensure least-privilege: only request this permission when strictly needed and enforce RBAC server-side.');
+      }
+    }
+  }
+
+  // ── Feature flag checks ───────────────────
+
+  void _validateFeatureFlags(List<FeatureFlag> flags) {
+    final enabledFlags = flags.where((f) => f.enabled).toList();
+    if (enabledFlags.isNotEmpty) {
+      final names = enabledFlags.map((f) => '"${f.name}"').join(', ');
+      _warnings.add(
+          '[Features] Active feature flags ($names) are exposed client-side. '
+          'Move feature flags to a server-side service (e.g. Firebase Remote Config) to avoid revealing attack surfaces.');
     }
   }
 
@@ -260,6 +353,9 @@ void main(List<String> args) {
   final apiConfig = parser.parseApiConfig();
   final users = parser.parseUsers();
   final firewallRules = parser.parseFirewallRules();
+  final encryptionConfig = parser.parseEncryptionConfig();
+  final permissions = parser.parsePermissions();
+  final featureFlags = parser.parseFeatureFlags();
 
   print('Parsed ${users.length} user(s) and ${firewallRules.length} firewall rule(s).');
 
@@ -269,6 +365,9 @@ void main(List<String> args) {
     apiConfig: apiConfig,
     users: users,
     firewallRules: firewallRules,
+    encryptionConfig: encryptionConfig,
+    permissions: permissions,
+    featureFlags: featureFlags,
   );
 
   // Report
